@@ -248,9 +248,25 @@ end = struct
   let match_burial_place =
     exact_place_wrapper @@ apply_to_field_places ~get:get_burial_place
 
-  let match_other_events_place =
-    (* TODO *)
-    assert false
+  let match_other_events_place ~base ~p ~places ~exact_place =
+    let cmp = if exact_place then ( = ) else string_incl in
+    let pevents = Gwdb.get_pevents p in
+    let fevents =
+      List.flatten @@ Array.to_list
+      @@ Array.map Gwdb.get_fevents
+           (Array.map (Gwdb.foi base) (Gwdb.get_family p))
+    in
+    (* wrap value in unit -> string to be lazy ?*)
+    let pevent_places =
+      List.map (fun e () -> sou base @@ Gwdb.get_pevent_place e) pevents
+    in
+    let fevent_places =
+      List.map (fun e () -> sou base @@ Gwdb.get_fevent_place e) fevents
+    in
+    let event_places = pevent_places @ fevent_places in
+    List.exists
+      (fun value_f -> do_compare ~p ~places ~cmp ~get:(fun _ -> value_f ()))
+      event_places
 
   let match_marriage ~cmp ~conf ~base ~p ~places ~default ~dates =
     let d1, d2 = dates in
@@ -317,9 +333,29 @@ end = struct
   let match_death_date =
     match_date ~df:(fun p -> Date.dmy_of_death (get_death p))
 
-  let match_other_events_date =
-    (* TODO *)
-    assert false
+  let match_other_events_date ~base ~p ~default ~dates =
+    let pevents = Gwdb.get_pevents p in
+    let fevents =
+      List.flatten @@ Array.to_list
+      @@ Array.map Gwdb.get_fevents
+           (Array.map (Gwdb.foi base) (Gwdb.get_family p))
+    in
+    (* wrap value in unit -> dmy to be lazy ?*)
+    let pevent_dates =
+      List.map
+        (fun e () -> Date.cdate_to_dmy_opt @@ Gwdb.get_pevent_date e)
+        pevents
+    in
+    let fevent_dates =
+      List.map
+        (fun e () -> Date.cdate_to_dmy_opt @@ Gwdb.get_fevent_date e)
+        fevents
+    in
+    let event_dates = pevent_dates @ fevent_dates in
+    List.exists
+      (fun event_date_f ->
+        match_date ~p ~default ~dates ~df:(fun _p -> event_date_f ()))
+      event_dates
 
   let match_name ~search_list ~exact : string list -> bool =
     let eq : string list -> string list -> bool =
@@ -408,8 +444,9 @@ end = struct
     let match_burial = match_and match_burial_date match_burial_place
     let match_death = match_and match_death_date match_death_place
 
-    let match_other_events =
-      match_and match_other_events_date match_other_events_place
+    let match_other_events ~base ~p ~dates ~places ~exact_place =
+      match_other_events_date ~base ~p ~default:true ~dates
+      && match_other_events_place ~base ~p ~places ~exact_place
   end
 
   module Or = struct
@@ -423,8 +460,9 @@ end = struct
     let match_burial = match_or match_burial_date match_burial_place
     let match_death = match_or match_death_date match_death_place
 
-    let match_other_events =
-      match_or match_other_events_date match_other_events_place
+    let match_other_events ~base ~p ~dates ~places ~exact_place =
+      match_other_events_date ~base ~p ~default:false ~dates
+      || match_other_events_place ~base ~p ~places ~exact_place
   end
 end
 
