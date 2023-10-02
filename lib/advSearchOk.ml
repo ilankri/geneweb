@@ -120,6 +120,8 @@ let gets env x =
       in
       loop "" 1
 
+let is_event_field_on env event_name = "on" = gets env ("event_" ^ event_name)
+
 (* Get the field name of an event criteria depending of the search type. *)
 let get_event_field_name env event_criteria event_name search_type =
   match search_type with
@@ -582,9 +584,10 @@ let advanced_search conf base max_answers =
                ~dates:(getd Fields.AND.other_events_date)
                ~places:(getss Fields.AND.other_events_place)
       | Fields.Or ->
-          let match_f or_f and_f =
-            or_f ~base ~p ~dates:(getd Fields.OR.date)
-              ~places:(getss Fields.OR.place) ~exact_place
+          let match_f tag or_f and_f =
+            is_event_field_on conf.env tag
+            && or_f ~base ~p ~dates:(getd Fields.OR.date)
+                 ~places:(getss Fields.OR.place) ~exact_place
             && and_f ~base ~p ~dates:(getd Fields.OR.date)
                  ~places:(getss Fields.OR.place) ~exact_place
           in
@@ -592,15 +595,16 @@ let advanced_search conf base max_answers =
           && (getss "place" = []
               && gets "date2_yyyy" = ""
               && gets "date1_yyyy" = ""
-             || match_f Or.match_baptism And.match_baptism
-             || match_f Or.match_birth And.match_birth
-             || match_f Or.match_burial And.match_burial
-             || match_f Or.match_death And.match_death
-             || match_marriage ~conf ~base ~p ~exact_place ~default:false
-                  ~places:(getss Fields.OR.place) ~dates:(getd Fields.OR.date))
-          || match_f Or.match_other_events And.match_other_events
+             || match_f "bapt" Or.match_baptism And.match_baptism
+             || match_f "birth" Or.match_birth And.match_birth
+             || match_f "burial" Or.match_burial And.match_burial
+             || match_f "death" Or.match_death And.match_death
+             || is_event_field_on conf.env "marriage"
+                && match_marriage ~conf ~base ~p ~exact_place ~default:false
+                     ~places:(getss Fields.OR.place)
+                     ~dates:(getd Fields.OR.date))
+          || match_f "other_events" Or.match_other_events And.match_other_events
     in
-
     if pmatch then (p :: list, len + 1) else acc
   in
 
