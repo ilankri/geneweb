@@ -5,7 +5,7 @@
 
 (executable
   (name plugin_piqi)
-  (embed_in_plugin_libraries piqirun piqilib piqirun.ext piqirun.pb)
+  (embed_in_plugin_libraries piqilib piqirun.ext piqirun.pb)
   (modes (native plugin))
   (optional)
 )
