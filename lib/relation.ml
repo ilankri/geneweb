@@ -158,7 +158,9 @@ let excl_faml conf base =
     | None ->
       match find_person_in_env conf base ("ef" ^ string_of_int i) with
       | Some p ->
-        let n = p_getint conf.env ("fef" ^ string_of_int i) |> Opt.default 0 in
+        let n =
+          p_getint conf.Config.env ("fef" ^ string_of_int i) |> Opt.default 0
+        in
         let list =
           if n < Array.length (get_family p)
           then (get_family p).(n) :: list

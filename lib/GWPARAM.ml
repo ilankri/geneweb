@@ -49,20 +49,20 @@ module Default = struct
       | None ->
         let code = match code with
           | Def.Bad_Request -> "400"
-          | Unauthorized -> "401"
-          | Forbidden -> "403"
-          | Not_Found -> "404"
-          | Conflict -> "409"
-          | Internal_Server_Error -> "500"
-          | Service_Unavailable -> "503"
-          | OK | Moved_Temporarily -> assert false
+          | Def.Unauthorized -> "401"
+          | Def.Forbidden -> "403"
+          | Def.Not_Found -> "404"
+          | Def.Conflict -> "409"
+          | Def.Internal_Server_Error -> "500"
+          | Def.Service_Unavailable -> "503"
+          | Def.OK | Def.Moved_Temporarily -> assert false
         in
         let fname lang =
           (code ^ "-" ^ lang ^ ".html")
           |> Filename.concat "etc"
           |> Mutil.search_asset_opt
         in
-        match fname conf.lang with
+        match fname conf.Config.lang with
         | Some fn -> output_file conf fn
         | None ->
           match fname "en" with
@@ -88,27 +88,29 @@ module Default = struct
       - Faux dans tous les autres cas *)
   let p_auth = fun conf base p ->
     conf.Config.wizard
-    || conf.friend
-    || Gwdb.get_access p = Public
-    || (conf.public_if_titles
-        && Gwdb.get_access p = IfTitles
-        && Gwdb.nobtit base conf.allowed_titles conf.denied_titles p <> [])
+    || conf.Config.friend
+    || Gwdb.get_access p = Def.Public
+    || (conf.Config.public_if_titles
+        && Gwdb.get_access p = Def.IfTitles
+        && Gwdb.nobtit
+             base conf.Config.allowed_titles conf.Config.denied_titles p
+           <> [])
     || begin
       let death = Gwdb.get_death p in
-      if death = NotDead then conf.private_years < 1
+      if death = Def.NotDead then conf.Config.private_years < 1
       else
         let check_date d none = match d with
           | Some (Def.Dgreg (d, _)) ->
-            let a  = Date.time_elapsed d conf.today in
+            let a  = Date.time_elapsed d conf.Config.today in
             if a.Def.year > conf.Config.private_years then true
-            else if a.year < conf.private_years then false
-            else a.month > 0 || a.day > 0
+            else if a.Def.year < conf.Config.private_years then false
+            else a.Def.month > 0 || a.Def.day > 0
           | _ -> none ()
         in
         check_date (Gwdb.get_birth p |> Adef.od_of_cdate) @@ fun () ->
         check_date (Gwdb.get_baptism p |> Adef.od_of_cdate) @@ fun () ->
         check_date (Gwdb.get_death p |> Date.date_of_death) @@ fun () ->
-        (Gwdb.get_access p <> Def.Private && conf.public_if_no_date)
+        (Gwdb.get_access p <> Def.Private && conf.Config.public_if_no_date)
         || begin
           let families = Gwdb.get_family p in
           let len = Array.length families in
@@ -146,7 +148,7 @@ module Default = struct
     Output.print_string conf {|</title>|} ;
     Output.print_string conf {|<meta name="robots" content="none">|} ;
     Output.print_string conf {|<meta charset="|} ;
-    Output.print_string conf conf.charset ;
+    Output.print_string conf conf.Config.charset ;
     Output.print_string conf {|">|} ;
     Output.print_string conf
       {|<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">|} ;
