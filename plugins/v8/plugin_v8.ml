@@ -424,6 +424,99 @@ module Handler = struct
       | _ ->
         (* print_several_possible_surnames x conf base (bhl, strl) *) false
 
+  let horizontal_bar ~scale count =
+    let length =
+      count
+      |> Float.of_int
+      |> Float.mul scale
+      |> Float.round
+      |> Int.of_float
+    in
+    String.make length '#'
+
+  let population_pyramid_row
+        ~interval ~at_date ~max_count i (male_count, female_count) =
+    let int_td x =
+      T.td
+        ~attr:[A.class_ "align-center simple-border"]
+        [T.pcdata @@ Int.to_string x]
+    in
+    let horizontal_bar_with_count ~direction count =
+      let bar_with_count_max_length = 20 in
+      let scale =
+        let max_length =
+          bar_with_count_max_length
+          - String.length (Int.to_string max_count)
+          - 1
+        in
+        Float.of_int max_length /. Float.of_int max_count
+      in
+      let bar_with_count =
+        let bar = horizontal_bar ~scale count in
+        let nbsp = "&nbsp;" in
+        let padding =
+          let length =
+            bar_with_count_max_length
+            - String.length (Int.to_string count)
+            - String.length bar
+            - 1
+          in
+          String.concat "" (List.init length (fun _ -> nbsp))
+        in
+        match direction with
+        | `Left -> Printf.sprintf "%s%d%s%s" padding count nbsp bar
+        | `Right -> Printf.sprintf "%s%s%d%s" bar nbsp count padding
+      in
+      T.td ~attr:[A.class_ "simple-border"] [T.pcdata @@ bar_with_count]
+    in
+    let max_birth_year = at_date.Def.year - i * interval in
+    let max_age = (i + 1) * interval in
+    T.tr [
+        int_td max_birth_year;
+        horizontal_bar_with_count ~direction:`Left male_count;
+        int_td max_age;
+        horizontal_bar_with_count ~direction:`Right female_count;
+        int_td max_birth_year
+      ]
+
+  let population_pyramid_table ~interval ~at_date ~male_counts ~female_counts =
+    let rows =
+      match Mutil.list_max (male_counts @ female_counts) with
+      | None -> []
+      | Some max_count ->
+         let remove_trailing_zeroes counts =
+           counts
+           |> List.rev
+           |> Mutil.list_drop_while (( = ) (0, 0))
+           |> List.rev
+         in
+         List.combine male_counts female_counts
+         |> remove_trailing_zeroes
+         |> List.mapi (population_pyramid_row ~interval ~at_date ~max_count)
+         |> List.rev
+    in
+    T.table ~attr:[A.class_ "simple-border"] [T.tbody rows]
+
+  let population_pyramid assets conf base =
+    let table =
+      let interval = 5 in
+      let at_date =
+        match Util.p_getint conf.env "y" with
+        | None -> conf.today
+        | Some year ->
+           {Def.year; month = 31; day = 12; prec = Sure; delta = 0}
+      in
+      let male_counts, female_counts =
+        let male_counts, female_counts =
+          BirthDeath.make_population_pyramid
+            ~nb_intervals:30 ~interval ~limit:0 ~at_date conf base
+        in
+        Array.to_list male_counts, Array.to_list female_counts
+      in
+      population_pyramid_table ~interval ~at_date ~male_counts ~female_counts
+    in
+    render conf (skeleton assets [] [table]);
+    true
 end
 
 let ns = "v8"
@@ -447,6 +540,9 @@ let w_base fn conf = function Some base ->  fn conf base
 
 let () =
   let module H = Handler in
+  let population_pyramid_handler assets =
+    w_base @@ fun conf base -> H.population_pyramid assets conf base
+  in
   print_endline (__LOC__ ^ ": " ^ !Gwd_lib.GwdPlugin.assets) ;
   Secure.add_assets !Gwd_lib.GwdPlugin.assets ;
   Gwd_lib.GwdPlugin.register_misc ~ns misc ;
@@ -480,4 +576,5 @@ let () =
         | Some s -> H.some_sn assets conf base s
         | _ -> H.alln true assets conf base
       end
+    ; "POP_PYR",  population_pyramid_handler
     ]

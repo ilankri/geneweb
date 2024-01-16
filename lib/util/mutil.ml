@@ -819,6 +819,18 @@ let rec list_rev_iter f = function
   | [] -> ()
   | hd :: tl -> list_rev_iter f tl ; f hd
 
+let list_max ?(compare = Stdlib.compare) xs =
+  let max x y =
+    match x with
+    | None -> y
+    | Some x -> if compare x y < 0 then y else x
+  in
+  List.fold_left (fun current_max x -> Some (max current_max x)) None xs
+
+let rec list_drop_while p = function
+  | [] -> []
+  | x :: xs as xs' -> if p x then list_drop_while p xs else xs'
+
 (* POSIX lockf(3), and fcntl(2), releases its locks when the process
    that holds the locks closes ANY file descriptor that was open on that file.
 *)

@@ -224,6 +224,10 @@ val list_map_sort_uniq : ('a -> 'b) -> 'a list -> 'b list
 
 val list_rev_map_append : ('a -> 'b) -> 'a list -> 'b list -> 'b list
 
+val list_max : ?compare:('a -> 'a -> int) -> 'a list -> 'a option
+
+val list_drop_while : ('a -> bool) -> 'a list -> 'a list
+
 (** [read_or_create_channel ?magic fname read write]
 
     If [fname] exists (and starts with [magic] if this one is provided),

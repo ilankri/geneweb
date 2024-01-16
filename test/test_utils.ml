@@ -78,6 +78,33 @@ let mutil_string_of_int_sep _ =
   test "," "100,000" 100000 ;
   test "," "1,000,000" 1000000
 
+let mutil_list_max _ =
+  let test ?compare ~expected_output xs =
+    let printer = function
+      | None -> "None"
+      | Some x -> Printf.sprintf "Some %d" x
+    in
+    assert_equal ~printer expected_output (Mutil.list_max ?compare xs)
+  in
+  test ~expected_output:None [];
+  test ~expected_output:(Some 2) [0; 1; 2];
+  test ~expected_output:(Some 5)  [3; 5; 4];
+  test ~expected_output:(Some 6) ~compare:(fun x y -> compare y x) [6; 7; 8]
+
+let mutil_list_drop_while _ =
+  let test ~expected_output p xs =
+    let printer xs =
+      Printf.sprintf "[%s]" (String.concat "; " (List.map Int.to_string xs))
+    in
+    assert_equal ~printer expected_output (Mutil.list_drop_while p xs)
+  in
+  test ~expected_output:[] (fun _ -> false) [];
+  test ~expected_output:[] (fun _ -> true) [];
+  test ~expected_output:[0; 0; 0] (fun _ -> false) [0; 0; 0];
+  test ~expected_output:[] (fun _ -> true) [0; 0; 0];
+  test ~expected_output:[1; 2; 0; 0] (Int.equal 0) [0; 0; 1; 2; 0; 0];
+  test ~expected_output:[-2; -1; 0; 1; 2; 0] (Int.equal 0) [-2; -1; 0; 1; 2; 0]
+
 let name_title _ =
   let test exp = List.iter (fun s -> assert_equal ~printer:(fun s -> s) exp (Name.title s)) in
   test "Jean-Baptiste" [ "jean-baptiste" ; "JEAN-baptiste" ; "Jean-Baptiste" ; "jeaN-baptistE" ]
@@ -178,6 +205,8 @@ let suite =
     ; "mutil_arabian_romian" >:: mutil_arabian_romian
     ; "mutil_compare_after_particle" >:: mutil_compare_after_particle
     ; "mutil_string_of_int_sep" >:: mutil_string_of_int_sep
+    ; "mutil_list_max" >:: mutil_list_max
+    ; "mutil_list_drop_while" >:: mutil_list_drop_while
     ]
   ; "Name" >:::
     [ "name_title" >:: name_title
