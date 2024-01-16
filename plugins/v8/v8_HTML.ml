@@ -19,7 +19,7 @@ module ATTR = struct
   let tabindex = attr "tabindex"
   let type_ = attr "type"
   let value = attr "value"
-  
+
 end
 
 module TAG = struct
@@ -82,7 +82,7 @@ module RENDER = struct
       Geneweb.Output.print_string conf v ;
       Geneweb.Output.print_string conf "\"" ;
     end
-  
+
   let rec r conf =
     List.iter begin function
       | Tag (tag, attrs, contents) ->
