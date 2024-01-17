@@ -517,6 +517,29 @@ module Handler = struct
     in
     render conf (skeleton assets [] [table]);
     true
+
+  let ancestor_search assets conf base =
+    let result =
+      let failure_message = "Incorrect request" in
+      match Option.map Sosa.of_int (Util.p_getint conf.env "sosa") with
+      | None | exception Invalid_argument _ -> failure_message
+      | Some sosa ->
+         if Sosa.compare sosa Sosa.zero <= 0 then failure_message
+         else
+           match
+             Option.bind
+               (Util.find_person_in_env conf base "")
+               (Util.p_of_sosa conf base sosa)
+           with
+           | None -> failure_message
+           | Some ancestor ->
+              Printf.sprintf
+                "%s %s"
+                (Gwdb.sou base (Gwdb.get_first_name ancestor))
+                (Gwdb.sou base (Gwdb.get_surname ancestor))
+    in
+    render conf (skeleton assets [] [T.pcdata result]);
+    true
 end
 
 let ns = "v8"
@@ -542,6 +565,9 @@ let () =
   let module H = Handler in
   let population_pyramid_handler assets =
     w_base @@ fun conf base -> H.population_pyramid assets conf base
+  in
+  let ancestor_search_handler assets =
+    w_base @@ fun conf base -> H.ancestor_search assets conf base
   in
   print_endline (__LOC__ ^ ": " ^ !Gwd_lib.GwdPlugin.assets) ;
   Secure.add_assets !Gwd_lib.GwdPlugin.assets ;
@@ -577,4 +603,5 @@ let () =
         | _ -> H.alln true assets conf base
       end
     ; "POP_PYR",  population_pyramid_handler
+    ; "SOSA",  ancestor_search_handler
     ]
