@@ -268,8 +268,8 @@ end = struct
           | Pevent Epers_Death
           | Pevent Epers_Burial
           | Fevent Efam_Marriage ->
-              true
-          | _ -> false)
+            false
+          | _ -> true)
         (pevents @ fevents)
     in
     List.exists
