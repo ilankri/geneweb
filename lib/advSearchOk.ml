@@ -24,33 +24,7 @@ let reconstitute_date_dmy conf var =
       | None -> Some { day = 0; month = 0; year = y; prec = Sure; delta = 0 })
   | None -> None
 
-let rec skip_spaces x i =
-  if i = String.length x then i
-  else if String.unsafe_get x i = ' ' then skip_spaces x (i + 1)
-  else i
-
-let rec skip_no_spaces x i =
-  if i = String.length x then i
-  else if String.unsafe_get x i != ' ' then skip_no_spaces x (i + 1)
-  else i
-
-let string_incl x y =
-  let rec loop j_ini =
-    if j_ini = String.length y then false
-    else
-      let rec loop1 i j =
-        if i = String.length x then
-          if j = String.length y then true
-          else String.unsafe_get y j = ' ' || String.unsafe_get y (j - 1) = ' '
-        else if
-          j < String.length y && String.unsafe_get x i = String.unsafe_get y j
-        then loop1 (i + 1) (j + 1)
-        else loop (skip_spaces y (skip_no_spaces y j_ini))
-      in
-      loop1 0 j_ini
-  in
-  loop 0
-
+let string_incl x y = Str.string_match (Str.regexp_string x) y 0
 let abbrev_lower x = Name.abbrev (Name.lower x)
 let sex_of_string = function "M" -> Def.Male | "F" -> Female | _ -> Neuter
 
