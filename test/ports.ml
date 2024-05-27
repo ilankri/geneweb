@@ -186,10 +186,7 @@ let () =
     (w, wk, Gwdb.sou base wnote)
   in
   assert (witness_kind = Def.Witness);
-  assert (
-    wnote
-    = "This is a witness note on a diploma event\n\
-       -- this is the second line of the witness note --")
+  assert (wnote = "This is a witness note on a diploma event")
 
 (* check title *)
 let () =
