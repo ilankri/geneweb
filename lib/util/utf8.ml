@@ -127,7 +127,7 @@ module C = struct
 
   (* See BatUTF8.look source (from batteries) *)
   let cp s i =
-    Uchar.of_int
+    Uchar.unsafe_of_int
     @@
     let n = Char.code (String.unsafe_get s i) in
     if n < 0x80 then n
