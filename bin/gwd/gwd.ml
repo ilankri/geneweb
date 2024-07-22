@@ -215,6 +215,8 @@ let register_plugin dir =
       let f = Filename.concat lex_dir f in
       if not (Sys.is_directory f) then lexicon_list := f :: !lexicon_list
     end lex end ;
+  print_endline __LOC__;
+  print_endline dir;
   let assets = Filename.concat dir "assets" in
   GwdPlugin.assets := assets ;
   begin
