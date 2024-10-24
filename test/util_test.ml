@@ -112,6 +112,8 @@ let utf8_sub () =
   test "švédčina" "švédčina" 0 8;
   test "a" "švédčina" 7 1
 
+let utf8_alphabetical_order () = failwith __LOC__
+
 let util_name_with_roman_number () =
   let test r a =
     (Alcotest.check (Alcotest.option Alcotest.string))
@@ -203,7 +205,11 @@ let v =
           mutil_string_of_int_sep;
       ] );
     ("name", [ Alcotest.test_case "Name.title" `Quick name_title ]);
-    ("utf8", [ Alcotest.test_case "Utf8.sub" `Quick utf8_sub ]);
+    ( "utf8",
+      [
+        Alcotest.test_case "Utf8.sub" `Quick utf8_sub;
+        Alcotest.test_case "alphabetical-order" `Quick utf8_alphabetical_order;
+      ] );
     ( "util",
       [
         Alcotest.test_case "Util.safe_html" `Quick util_safe_html;
