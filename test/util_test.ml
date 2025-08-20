@@ -519,6 +519,18 @@ let html_text_content () =
         ~expected:
           (Expected.make ~text_content:"My test page" ~is_plain_text:false)
         {|<!doctype html><html lang="en-US"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>My test page</title></head><body><img src="" alt="My test image" /></body></html>|};
+      test_case ~__POS__
+        ~expected:(Expected.make ~text_content:"'" ~is_plain_text:false)
+        {|&apos;|};
+      test_case ~__POS__
+        ~expected:(Expected.make ~text_content:"'" ~is_plain_text:false)
+        {|&#39;|};
+      test_case ~__POS__
+        ~expected:(Expected.make ~text_content:"" ~is_plain_text:false)
+        {|<br>|};
+      test_case ~__POS__
+        ~expected:(Expected.make ~text_content:"" ~is_plain_text:false)
+        {|&lt;br&gt;|};
     ]
   in
   List.iter
