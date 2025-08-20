@@ -1,5 +1,5 @@
 let parse ?context s =
-  Markup.string s |> Markup.parse_html ?context |> Markup.signals
+  s |> Markup.string |> Markup.parse_html ?context |> Markup.signals
 
 let pretty_print ?escape_attribute ?escape_text elements =
   elements
