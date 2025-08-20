@@ -10,9 +10,5 @@ let map ?context ?escape_attribute ?escape_text f s =
   s |> parse ?context |> Markup.map f
   |> pretty_print ?escape_attribute ?escape_text
 
-let text_content s =
-  s |> parse
-  |> Markup.filter Ext_markup.is_text
-  |> pretty_print ~escape_attribute:Fun.id ~escape_text:Fun.id
-
+let text_content s = s |> parse |> Markup.text |> Markup.to_string
 let is_plain_text s = String.equal (text_content s) s
