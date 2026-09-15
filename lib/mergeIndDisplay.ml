@@ -406,10 +406,10 @@ let print conf base =
   match (p1, p2) with
   | Some p1, Some p2 -> (
       match MergeInd.merge conf base p1 p2 with
-      | Stuck (IndJob { p1; p2 }, jobs, warnings) ->
+      | Stuck (IndJob { p1; p2 }, jobs, _) ->
           let pairs = MergeInd.person_pairs_of_jobs jobs in
           propose_merge_ind conf base pairs p1 p2
-      | Stuck (FamJob { f1; f2 }, jobs, warnings) ->
+      | Stuck (FamJob { f1; f2 }, jobs, _) ->
           let pairs = MergeInd.person_pairs_of_jobs jobs in
           propose_merge_fam conf base pairs
             (Gwdb.get_ifam f1, f1)
