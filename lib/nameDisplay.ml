@@ -144,17 +144,19 @@ let title_html_of_person conf base p t : Adef.safe_string =
 
 let fullname_html_of_person = fullname_html_of_person ~p_surname:Gwdb.p_surname
 
-let gen_person_title_text reference conf base p =
+let gen_person_title_text ?new_tab reference conf base p =
   if Person.is_visible conf base p then
     match Person.main_title conf base p with
     | Some t ->
         let open Def in
-        reference conf base p (title_html_of_person conf base p t)
+        reference ?new_tab conf base p (title_html_of_person conf base p t)
         ^^^ ", " ^<^ Util.one_title_text base t
-    | None -> reference conf base p (fullname_html_of_person conf base p)
-  else reference conf base p (fullname_html_of_person conf base p)
+    | None ->
+        reference ?new_tab conf base p (fullname_html_of_person conf base p)
+  else reference ?new_tab conf base p (fullname_html_of_person conf base p)
 
-let reference_flags with_id conf base p (s : Adef.safe_string) =
+let reference_flags ?(new_tab = false) with_id conf base p
+    (s : Adef.safe_string) =
   let iper = Gwdb.get_iper p in
   if Person.is_empty p then s
   else
@@ -164,19 +166,24 @@ let reference_flags with_id conf base p (s : Adef.safe_string) =
           (Util.commd' conf ~query:(Util.acces conf base p))
     ^<^ (if with_id then "\" id=\"i" else "")
     ^<^ (if with_id then Gwdb.string_of_iper iper else "")
-    ^<^ "\">" ^<^ s ^>^ "</a>"
+    ^<^ "\""
+    ^<^ (if new_tab then " target=\"_blank\"" else "")
+    ^<^ ">" ^<^ s ^>^ "</a>"
 
-let reference = reference_flags true
-let reference_noid = reference_flags false
+let reference ?new_tab = reference_flags ?new_tab true
+let reference_noid ?new_tab = reference_flags ?new_tab false
 let no_reference _conf _base _p s = s
-let referenced_person_title_text = gen_person_title_text reference
-let person_title_text = gen_person_title_text no_reference
 
-let referenced_person_text conf base p =
-  reference conf base p (fullname_html_of_person conf base p)
+let referenced_person_title_text ?new_tab =
+  gen_person_title_text ?new_tab reference
 
-let referenced_person_text_without_surname conf base p =
-  reference conf base p (first_name_html_of_person conf base p)
+let person_title_text = gen_person_title_text (fun ?new_tab:_ -> no_reference)
+
+let referenced_person_text ?new_tab conf base p =
+  reference ?new_tab conf base p (fullname_html_of_person conf base p)
+
+let referenced_person_text_without_surname ?new_tab conf base p =
+  reference ?new_tab conf base p (first_name_html_of_person conf base p)
 
 let person_text_without_title conf base p =
   match Person.main_title conf base p with

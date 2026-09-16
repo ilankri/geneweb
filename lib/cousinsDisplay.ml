@@ -19,7 +19,7 @@ let cnt = ref 0
 let cnt_sp = ref 0
 
 let give_access conf base ~cnt_sp ia_asex p1 b1 p2 b2 =
-  let reference _ _ p (s : Adef.safe_string) =
+  let reference ?new_tab:_ _ _ p (s : Adef.safe_string) =
     if Person.is_empty p then s
     else
       let href =
@@ -52,7 +52,7 @@ let give_access conf base ~cnt_sp ia_asex p1 b1 p2 b2 =
       let open Def in
       "<a href=\"" ^<^ Localized_url.to_string href ^<^ "\">" ^<^ s ^>^ "</a>"
   in
-  let reference_sp p3 _ _ p s =
+  let reference_sp p3 ?new_tab:_ _ _ p s =
     if Person.is_empty p then s
     else
       let href =
@@ -206,7 +206,9 @@ let print_cousins_side_of conf base max_cnt a ini_p ini_br lev1 lev2 tips =
     if lev1 > 1 then (
       Output.print_sstring conf "<li>";
       [
-        (NameDisplay.gen_person_title_text NameDisplay.no_reference conf base a
+        (NameDisplay.gen_person_title_text
+           (fun ?new_tab:_ -> NameDisplay.no_reference)
+           conf base a
           : Adef.safe_string
           :> string);
       ]

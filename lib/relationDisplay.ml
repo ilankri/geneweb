@@ -483,7 +483,10 @@ let print_link_name conf base n p1 p2 sol =
   let s2 =
     if Person.is_hide_names conf p1 && not (Person.is_visible conf base p1) then
       Adef.safe "x x"
-    else NameDisplay.gen_person_title_text NameDisplay.no_reference conf base p1
+    else
+      NameDisplay.gen_person_title_text
+        (fun ?new_tab:_ -> NameDisplay.no_reference)
+        conf base p1
   in
   let s =
     if x2 < x1 then
@@ -632,7 +635,9 @@ let print_solution_not_ancestor conf base long p1 p2 sol =
   in
   let print pp p (alab : Adef.safe_string) =
     let s =
-      NameDisplay.gen_person_title_text NameDisplay.no_reference conf base p
+      NameDisplay.gen_person_title_text
+        (fun ?new_tab:_ -> NameDisplay.no_reference)
+        conf base p
     in
     let s =
       match pp with
