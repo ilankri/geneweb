@@ -129,9 +129,7 @@ end = struct
           match istr_o with
           | None -> false
           | Some istr ->
-              Option.fold ~none:false
-                ~some:(fun istr' -> Gwdb.compare_istr istr istr' = 0)
-                (get p)
+              Option.fold ~none:false ~some:(Gwdb.eq_istr istr) (get p)
         else
           let abbreved_str, _ = place in
           Option.fold ~none:false
