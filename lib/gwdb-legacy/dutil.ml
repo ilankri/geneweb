@@ -313,3 +313,7 @@ let fnames_dat_path = fpath fnames_dat
 let fnames_inx_path = fpath fnames_inx
 let fnames_lower_inx_path = fpath fnames_lower_inx
 let fnames_lower_dat_path = fpath fnames_lower_dat
+let places_dat = "places.dat"
+let places_inx = "places.inx"
+let places_dat_path = fpath places_dat
+let places_inx_path = fpath places_inx

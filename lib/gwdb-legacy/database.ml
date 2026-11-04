@@ -458,6 +458,60 @@ let persons_of_lower_fs_name :
       flush stderr;
       failwith "Unsupported geneweb version"
 
+let compare_places_i base_data is1 is2 =
+  if is1 = is2 then 0
+  else
+    String.compare
+      (base_data.Dbdisk.strings.get is1)
+      (base_data.Dbdisk.strings.get is2)
+
+let persons_of_place :
+    Dbdisk.base_version ->
+    Dbdisk.base_data ->
+    ('a -> Dutil.IntHT.key list)
+    * (Dbdisk.base_data -> int -> person -> bool)
+    * (int, person) Hashtbl.t
+    * string
+    * string
+    * string ->
+    Dbdisk.string_person_index = function
+  | GnWb0024 | GnWb0023 | GnWb0022 | GnWb0021 ->
+      new_persons_of_first_name_or_surname
+        (fun _ -> String.compare)
+        compare_places_i
+  | GnWb0020 ->
+      Printf.eprintf "GnWb0020 does not support places indexes\n";
+      flush stderr;
+      failwith "Unsupported geneweb version"
+
+let places_of_person base_data p =
+  let places =
+    [ p.Dbdisk.birth_place; p.baptism_place; p.death_place; p.burial_place ]
+  in
+  let places =
+    List.fold_left
+      (fun acc (e : _ Dbdisk.gen_pers_event) -> e.epers_place :: acc)
+      places p.pevents
+  in
+  let places =
+    try
+      let u = base_data.Dbdisk.unions.get p.key_index in
+      Array.fold_left
+        (fun acc ifam ->
+          let fam = base_data.families.get ifam in
+          let acc = fam.marriage_place :: acc in
+          List.fold_left
+            (fun acc (e : _ Dbdisk.gen_fam_event) -> e.efam_place :: acc)
+            acc fam.fevents)
+        places u.family
+    with _ -> places
+  in
+  List.filter (fun istr -> istr <> 0) places
+
+let place_changed base_data i p =
+  let old_p = base_data.Dbdisk.persons.get i in
+  places_of_person base_data old_p <> places_of_person base_data p
+
 (* Search index for a given name in file names.inx *)
 
 let persons_of_name bname patches =
@@ -1476,6 +1530,24 @@ let opendb bname =
               fnames_inx,
               fnames_dat,
               bname ));
+      persons_of_place =
+        (if
+         Sys.file_exists (Filename.concat bname Dutil.places_inx)
+         && Sys.file_exists (Filename.concat bname Dutil.places_dat)
+        then
+         persons_of_place version base_data
+           ( (fun p -> places_of_person base_data p),
+             place_changed,
+             snd patches.h_person,
+             Dutil.places_inx,
+             Dutil.places_dat,
+             bname )
+        else
+          {
+            find = (fun _ -> []);
+            cursor = (fun _ -> raise Not_found);
+            next = (fun _ -> raise Not_found);
+          });
       persons_stream_of_first_name_prefix =
         persons_stream_of_first_name_prefix ~insert_string ~base_data ~version
           ~patches;
@@ -1578,6 +1650,12 @@ let make bname particles ((persons, families, strings, bnotes) as _arrays) :
           next = (fun _ -> assert false);
         };
       persons_of_lower_first_name =
+        {
+          find = (fun _ -> assert false);
+          cursor = (fun _ -> assert false);
+          next = (fun _ -> assert false);
+        };
+      persons_of_place =
         {
           find = (fun _ -> assert false);
           cursor = (fun _ -> assert false);

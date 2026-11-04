@@ -64,6 +64,7 @@ let person_of_key base = base.Dbdisk.func.Dbdisk.person_of_key
 let persons_of_name base = base.Dbdisk.func.Dbdisk.persons_of_name
 let persons_of_first_name base = base.Dbdisk.func.Dbdisk.persons_of_first_name
 let persons_of_surname base = base.Dbdisk.func.Dbdisk.persons_of_surname
+let persons_of_place base = base.Dbdisk.func.Dbdisk.persons_of_place
 
 let persons_of_lower_first_name base =
   base.Dbdisk.func.Dbdisk.persons_of_lower_first_name

@@ -157,3 +157,7 @@ val fnames_lower_dat : string
 val fnames_lower_inx : string
 val fnames_lower_dat_path : ?temp:bool -> Dbdisk.dsk_base -> string
 val fnames_lower_inx_path : ?temp:bool -> Dbdisk.dsk_base -> string
+val places_dat : string
+val places_inx : string
+val places_dat_path : ?temp:bool -> Dbdisk.dsk_base -> string
+val places_inx_path : ?temp:bool -> Dbdisk.dsk_base -> string

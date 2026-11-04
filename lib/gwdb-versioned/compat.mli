@@ -470,6 +470,10 @@ module type Driver_S = sig
   (** Returns data structure that allows to make optimised search throughout
     index by surname *)
 
+  val persons_of_place : base -> string_person_index
+  (** Returns data structure that allows to make optimised search throughout
+    index by place *)
+
   val persons_of_lower_first_name : base -> string_person_index
   (** Returns data structure that allows to make optimised search throughout
       index by first name *)
