@@ -414,20 +414,34 @@ let advanced_search_first_name_prefix ~conf ~base ~(match_person : match_person)
   in
   (List.map (Authorized.Person.make ~conf ~base) list, List.length list)
 
-let advanced_search_without_names ~conf ~base ~match_person ~max_answers =
-  Gwdb.load_persons_array base;
-  let result =
-    Gwdb.Collection.fold_until
-      (fun (_, len) -> len < max_answers)
-      (fun acc i -> match_person acc (Authorized.Person.make ~conf ~base i))
-      ([], 0) (Gwdb.ipers base)
-  in
-  Gwdb.clear_persons_array base;
-  result
+let advanced_search_without_names ~conf ~base ~raw_filter ~match_person
+    ~max_answers =
+  match raw_filter with
+  | `Index ipers ->
+      let rec loop ((_, len) as acc) = function
+        | [] -> acc
+        | _ when len >= max_answers -> acc
+        | ip :: rest ->
+            loop (match_person acc (Authorized.Person.make ~conf ~base ip)) rest
+      in
+      loop ([], 0) ipers
+  | `Filter filter ->
+      Gwdb.load_persons_array base;
+      let result =
+        Gwdb.Collection.fold_until
+          (fun (_, len) -> len < max_answers)
+          (fun acc i ->
+            if filter (Gwdb.poi base i) then
+              match_person acc (Authorized.Person.make ~conf ~base i)
+            else acc)
+          ([], 0) (Gwdb.ipers base)
+      in
+      Gwdb.clear_persons_array base;
+      result
 
-let advanced_search_without_prefix ~conf ~base ~(match_person : match_person)
-    ~max_answers ~surname_search_mode ~sn_list ~first_name_search_mode ~fn_list
-    ~include_marital_names =
+let advanced_search_without_prefix ~conf ~base ~raw_filter
+    ~(match_person : match_person) ~max_answers ~surname_search_mode ~sn_list
+    ~first_name_search_mode ~fn_list ~include_marital_names =
   let persons_of_name_list strings_of persons_of n_list mode =
     List.concat_map
       (fun x ->
@@ -472,15 +486,29 @@ let advanced_search_without_prefix ~conf ~base ~(match_person : match_person)
         persons_of_name_list Gwdb.base_strings_of_first_name
           Gwdb.persons_of_first_name fn_list first_name_search_mode )
   in
+  let list =
+    match raw_filter with
+    | `Index ipers ->
+        let set = Gwdb.IperSet.of_list ipers in
+        List.filter (fun ip -> Gwdb.IperSet.mem ip set) list
+    | `Filter _ -> list
+  in
   let rec loop ((_, len) as acc) iper_set = function
     | [] -> acc
     | _ when len >= max_answers -> acc
     | ip :: l when not (Gwdb.IperSet.mem ip iper_set) ->
-        loop
-          (match_person ~skip_fname ~skip_sname acc
-             (Authorized.Person.make ~conf ~base ip))
-          (Gwdb.IperSet.add ip iper_set)
-          l
+        let is_ok =
+          match raw_filter with
+          | `Filter f -> f (Gwdb.poi base ip)
+          | `Index _ -> true
+        in
+        if is_ok then
+          loop
+            (match_person ~skip_fname ~skip_sname acc
+               (Authorized.Person.make ~conf ~base ip))
+            (Gwdb.IperSet.add ip iper_set)
+            l
+        else loop acc (Gwdb.IperSet.add ip iper_set) l
     | _ :: l -> loop acc iper_set l
   in
   loop ([], 0) Gwdb.IperSet.empty list
@@ -625,8 +653,84 @@ let advanced_search ?(excluded_persons = [])
       (p :: list, len + 1)
     else acc
   in
+  let has_missing_exact_place =
+    query_params.event_exact_place && search_type = `And
+    && List.exists
+         (fun (_, (event : Page.Advanced_search.Query_params.Event.t)) ->
+           match event.place with
+           | Some str -> Option.is_none (Gwdb.find_opt_string_istr base str)
+           | None -> false)
+         query_params.events
+  in
+  let raw_filter =
+    if not query_params.event_exact_place then `Filter (fun _ -> true)
+    else
+      let place_istrs =
+        List.filter_map
+          (fun (_, (e : Page.Advanced_search.Query_params.Event.t)) ->
+            Option.bind e.place (Gwdb.find_opt_string_istr base))
+          query_params.events
+      in
+      if place_istrs = [] then `Filter (fun _ -> true)
+      else
+        let ipers_lists =
+          List.map (Gwdb.spi_find (Gwdb.persons_of_place base)) place_istrs
+        in
+        match search_type with
+        | `And ->
+            let common_ipers =
+              match ipers_lists with
+              | [] -> []
+              | hd :: tl ->
+                  List.fold_left
+                    (fun acc l ->
+                      let set = Gwdb.IperSet.of_list l in
+                      List.filter (fun ip -> Gwdb.IperSet.mem ip set) acc)
+                    hd tl
+            in
+            if common_ipers <> [] then `Index common_ipers
+            else
+              let checks =
+                List.filter_map
+                  (fun (k, (e : Page.Advanced_search.Query_params.Event.t)) ->
+                    match (k, e.place) with
+                    | `Birth, Some str ->
+                        Some
+                          ( Gwdb.get_birth_place,
+                            Gwdb.find_opt_string_istr base str )
+                    | `Baptism, Some str ->
+                        Some
+                          ( Gwdb.get_baptism_place,
+                            Gwdb.find_opt_string_istr base str )
+                    | `Death, Some str ->
+                        Some
+                          ( Gwdb.get_death_place,
+                            Gwdb.find_opt_string_istr base str )
+                    | `Burial, Some str ->
+                        Some
+                          ( Gwdb.get_burial_place,
+                            Gwdb.find_opt_string_istr base str )
+                    | _ -> None)
+                  query_params.events
+              in
+              `Filter
+                (fun p ->
+                  List.for_all
+                    (fun (get, istr_opt) ->
+                      match istr_opt with
+                      | None -> false
+                      | Some istr -> Gwdb.eq_istr (get p) istr)
+                    checks)
+        | `Or ->
+            let all_ipers =
+              List.concat ipers_lists |> List.sort_uniq Gwdb.compare_iper
+            in
+            if all_ipers <> [] then `Index all_ipers
+            else `Filter (fun _ -> true)
+  in
   let list, len =
-    if query_params.only_root_ancestors then
+    if has_missing_exact_place then ([], 0)
+    else if query_params.only_root_ancestors then
       advanced_search_sosa ~conf:conf' ~base ~match_person
     else
       match
@@ -646,11 +750,12 @@ let advanced_search ?(excluded_persons = [])
           advanced_search_first_name_prefix ~conf ~base ~match_person
             ~max_answers ~first_name_prefix
       | (_, []), (_, []) ->
-          advanced_search_without_names ~conf ~base ~match_person ~max_answers
+          advanced_search_without_names ~conf ~base ~raw_filter ~match_person
+            ~max_answers
       | _ ->
-          advanced_search_without_prefix ~conf ~base ~match_person ~max_answers
-            ~surname_search_mode ~sn_list ~first_name_search_mode ~fn_list
-            ~include_marital_names:query_params.include_marital_names
+          advanced_search_without_prefix ~conf ~base ~raw_filter ~match_person
+            ~max_answers ~surname_search_mode ~sn_list ~first_name_search_mode
+            ~fn_list ~include_marital_names:query_params.include_marital_names
   in
   (List.rev list, len)
 
