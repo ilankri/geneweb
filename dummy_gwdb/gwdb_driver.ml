@@ -37,7 +37,7 @@ type base = {
 type family = base * (iper, ifam, istr) Def.gen_family
 type person = base * (iper, iper, istr) Def.gen_person
 type relation = (iper, istr) Def.gen_relation
-type string_person_index
+type string_person_index = istr -> iper list
 type title = istr Def.gen_title
 
 module Utils = struct
@@ -347,17 +347,61 @@ let delete_couple base ifam =
 
 (* TODO : implement *)
 
-let persons_of_first_name _base = assert false
-let persons_of_surname _base = assert false
-let persons_of_place _base = assert false
-let has_places_index _base = false
+let persons_of_first_name base target_istr =
+  let res = ref [] in
+  Array.iteri
+    (fun iper p ->
+      if
+        p.Def.first_name = target_istr
+        || List.mem target_istr p.first_names_aliases
+      then res := iper :: !res)
+    base.persons;
+  List.rev !res
+
+let persons_of_surname base target_istr =
+  let res = ref [] in
+  Array.iteri
+    (fun iper p ->
+      if p.Def.surname = target_istr || List.mem target_istr p.surnames_aliases
+      then res := iper :: !res)
+    base.persons;
+  List.rev !res
+
+let persons_of_place base target_istr =
+  let res = ref [] in
+  Array.iteri
+    (fun iper p ->
+      let places =
+        [ p.Def.birth_place; p.baptism_place; p.death_place; p.burial_place ]
+      in
+      let places =
+        List.fold_left (fun acc e -> e.Def.epers_place :: acc) places p.pevents
+      in
+      let places =
+        try
+          let u = base.unions.(iper) in
+          Array.fold_left
+            (fun acc ifam ->
+              let fam = base.families.(ifam) in
+              let acc = fam.marriage_place :: acc in
+              List.fold_left
+                (fun acc e -> e.Def.efam_place :: acc)
+                acc fam.fevents)
+            places u.family
+        with _ -> places
+      in
+      if List.mem target_istr places then res := iper :: !res)
+    base.persons;
+  List.rev !res
+
+let has_places_index _base = true
 let persons_stream_of_surname_prefix _ _ = assert false
 let persons_stream_of_first_name_prefix _ _ = assert false
 let persons_of_lower_surname _ = assert false
 let persons_of_lower_first_name _ = assert false
 let spi_first _spi _str = assert false
 let spi_next _spi _istr = assert false
-let spi_find _spi _istr = assert false
+let spi_find f istr = f istr
 let base_visible_get _base _pf _iper = assert false
 let base_visible_write _base = assert false
 let base_particles _base = assert false
