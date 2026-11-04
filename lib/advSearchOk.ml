@@ -564,6 +564,14 @@ end
 *)
 let advanced_search ?(excluded_persons = [])
     ~(query_params : Page.Advanced_search.Query_params.t) conf' base =
+  let base =
+    if
+      query_params.event_exact_place
+      && Gwdb.search_indexes_can_be_initialized_on_the_fly base
+      && not (Gwdb.has_places_index base)
+    then Gwdb.initialize_index ~kind:`Place base
+    else base
+  in
   let conf = Config.Trimmed.from_config conf' in
   let max_answers = Option.value ~default:max_int query_params.limit in
   let place_with_istr =
