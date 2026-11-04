@@ -629,6 +629,33 @@ let generate_lowercase_surname_index ~strings_data base =
 
   { commit; rollback = remove_temporary_files }
 
+let generate_place_index base =
+  let tmp_places_inx = Dutil.places_inx_path ~temp:true base in
+  let tmp_places_dat = Dutil.places_dat_path ~temp:true base in
+  let remove_temporary_files () =
+    Files.rm tmp_places_inx;
+    Files.rm tmp_places_dat
+  in
+  let () =
+    try
+      trace "create place index";
+      output_place_index base tmp_places_inx tmp_places_dat
+    with e ->
+      remove_temporary_files ();
+      raise e
+  in
+  let commit () =
+    let places_data_file = Dutil.places_dat_path base in
+    let places_index_file = Dutil.places_inx_path base in
+    Files.rm places_data_file;
+    Sys.rename tmp_places_dat places_data_file;
+    Files.set_modification_time_to_now places_data_file;
+    Files.rm places_index_file;
+    Sys.rename tmp_places_inx places_index_file;
+    Files.set_modification_time_to_now places_index_file
+  in
+  { commit; rollback = remove_temporary_files }
+
 let are_already_initialized base index_files =
   List.for_all
     (fun index_file ->
@@ -637,33 +664,52 @@ let are_already_initialized base index_files =
       && (Unix.stat index_file).st_mtime > (Unix.stat base_file).st_mtime)
     (List.map (Filename.concat base.data.bdir) index_files)
 
-let update_modification_times ~base ~(kind : [< `First_name | `Surname ])
-    ~surname_already_initialized ~first_name_already_initialized
-    ~first_name_index_files ~surname_index_files =
+let update_modification_times ~base
+    ~(kind : [< `First_name | `Surname | `Place ]) ~surname_already_initialized
+    ~first_name_already_initialized ~place_already_initialized
+    ~first_name_index_files ~surname_index_files ~place_index_files =
   match kind with
   | `First_name ->
       if surname_already_initialized then
         List.iter Files.set_modification_time_to_now
-          (List.map (Filename.concat base.Dbdisk.data.bdir) surname_index_files)
+          (List.map (Filename.concat base.Dbdisk.data.bdir) surname_index_files);
+      if place_already_initialized then
+        List.iter Files.set_modification_time_to_now
+          (List.map (Filename.concat base.Dbdisk.data.bdir) place_index_files)
   | `Surname ->
       if first_name_already_initialized then
         List.iter Files.set_modification_time_to_now
-          (List.map (Filename.concat base.data.bdir) first_name_index_files)
+          (List.map (Filename.concat base.data.bdir) first_name_index_files);
+      if place_already_initialized then
+        List.iter Files.set_modification_time_to_now
+          (List.map (Filename.concat base.data.bdir) place_index_files)
+  | `Place ->
+      if first_name_already_initialized then
+        List.iter Files.set_modification_time_to_now
+          (List.map (Filename.concat base.data.bdir) first_name_index_files);
+      if surname_already_initialized then
+        List.iter Files.set_modification_time_to_now
+          (List.map (Filename.concat base.data.bdir) surname_index_files)
 
 module Integrity : sig
   type integrity
 
   val check_index_integrity :
-    kind:[< `Surname | `First_name ] ->
+    kind:[< `Surname | `First_name | `Place ] ->
     base:Dbdisk.dsk_base ->
     index_file:string ->
     bool
 
   val write_index_integrity :
-    kind:[< `Surname | `First_name | `All ] -> base:Dbdisk.dsk_base -> unit
+    kind:[< `Surname | `First_name | `Place | `All ] ->
+    base:Dbdisk.dsk_base ->
+    unit
 
   val read_index_integrity : Dbdisk.dsk_base -> integrity
-  val integrity_matches : [< `Surname | `First_name ] -> integrity -> bool
+
+  val integrity_matches :
+    [< `Surname | `First_name | `Place ] -> integrity -> bool
+
   val has_index_integrity_file : Dbdisk.dsk_base -> bool
 end = struct
   let index_integrity_fname = "index_integrity"
@@ -694,19 +740,27 @@ end = struct
     let matches kind s = of_string s = Some kind
   end
 
-  type integrity = { firstname : string option; surname : string option }
+  type integrity = {
+    firstname : string option;
+    surname : string option;
+    place : string option;
+  }
 
   let read_index_integrity base : integrity =
     let integrity_file =
       Filename.concat base.Dbdisk.data.bdir index_integrity_fname
     in
     if not (Sys.file_exists integrity_file) then
-      { firstname = None; surname = None }
+      { firstname = None; surname = None; place = None }
     else
       let ic = Secure.open_in integrity_file in
       let firstname = match input_line ic with "" -> None | s -> Some s in
       let surname = match input_line ic with "" -> None | s -> Some s in
-      let integrity = { firstname; surname } in
+      let place =
+        try match input_line ic with "" -> None | s -> Some s
+        with End_of_file -> None
+      in
+      let integrity = { firstname; surname; place } in
       close_in ic;
       integrity
 
@@ -715,20 +769,23 @@ end = struct
       (match kind with
       | `Surname -> Option.map (Code.matches Code.current) integrity.surname
       | `First_name ->
-          Option.map (Code.matches Code.current) integrity.firstname)
+          Option.map (Code.matches Code.current) integrity.firstname
+      | `Place -> Option.map (Code.matches Code.current) integrity.place)
 
   let is_integrity_empty kind integrity =
     let integrity_kind =
       match kind with
       | `Surname -> integrity.surname
       | `First_name -> integrity.firstname
+      | `Place -> integrity.place
     in
     integrity_kind = None
 
   let string_of_integrity integrity =
-    Printf.sprintf "%s\n%s\n"
+    Printf.sprintf "%s\n%s\n%s\n"
       (Option.value ~default:"" integrity.firstname)
       (Option.value ~default:"" integrity.surname)
+      (Option.value ~default:"" integrity.place)
 
   let write_index_integrity ~kind ~base =
     let integrity_file =
@@ -741,10 +798,13 @@ end = struct
           { integrity_code with surname = Some (Code.to_string Code.current) }
       | `First_name ->
           { integrity_code with firstname = Some (Code.to_string Code.current) }
+      | `Place ->
+          { integrity_code with place = Some (Code.to_string Code.current) }
       | `All ->
           {
             surname = Some (Code.to_string Code.current);
             firstname = Some (Code.to_string Code.current);
+            place = Some (Code.to_string Code.current);
           }
     in
     let oc =
@@ -793,8 +853,8 @@ end = struct
       (Filename.concat base.Dbdisk.data.bdir index_integrity_fname)
 end
 
-let initialize_lowercase_name_index ?(on_lock_error = Lock.print_try_again)
-    ~kind base =
+let initialize_index ?(on_lock_error = Lock.print_try_again)
+    ~(kind : [< `First_name | `Surname | `Place ]) base =
   Lock.control
     ~onerror:(fun () ->
       on_lock_error ();
@@ -808,31 +868,49 @@ let initialize_lowercase_name_index ?(on_lock_error = Lock.print_try_again)
       let surname_index_files =
         [ Dutil.snames_lower_dat; Dutil.snames_lower_inx ]
       in
+      let place_index_files = [ Dutil.places_dat; Dutil.places_inx ] in
       let surname_already_initialized =
         are_already_initialized base surname_index_files
       in
       let first_name_already_initialized =
         are_already_initialized base first_name_index_files
       in
+      let place_already_initialized =
+        are_already_initialized base place_index_files
+      in
       let generate_index, already_initialized =
         match kind with
         | `First_name ->
-            ( generate_lowercase_first_name_index,
+            ( (fun base ->
+                generate_lowercase_first_name_index
+                  ~strings_data:(StringData.of_base base) base),
               first_name_already_initialized
               && Integrity.check_index_integrity ~kind ~base
                    ~index_file:Dutil.fnames_lower_inx )
         | `Surname ->
-            ( generate_lowercase_surname_index,
+            ( (fun base ->
+                generate_lowercase_surname_index
+                  ~strings_data:(StringData.of_base base) base),
               surname_already_initialized
               && Integrity.check_index_integrity ~kind ~base
                    ~index_file:Dutil.snames_lower_inx )
+        | `Place ->
+            ( (fun base ->
+                load_ascends_array base;
+                load_unions_array base;
+                load_couples_array base;
+                load_descends_array base;
+                load_families_array base;
+                load_strings_array base;
+                generate_place_index base),
+              place_already_initialized
+              && Integrity.check_index_integrity ~kind ~base
+                   ~index_file:Dutil.places_inx )
       in
       if not already_initialized then (
         base.Dbdisk.func.cleanup ();
         let base = Database.opendb base.Dbdisk.data.bdir in
-        let pending_index_generation =
-          generate_index ~strings_data:(StringData.of_base base) base
-        in
+        let pending_index_generation = generate_index base in
         let pending_base_generation =
           try generate_base ~keep_patch:true base
           with e ->
@@ -842,8 +920,8 @@ let initialize_lowercase_name_index ?(on_lock_error = Lock.print_try_again)
         pending_base_generation.commit ();
         pending_index_generation.commit ();
         update_modification_times ~base ~kind ~surname_already_initialized
-          ~first_name_already_initialized ~first_name_index_files
-          ~surname_index_files;
+          ~first_name_already_initialized ~place_already_initialized
+          ~first_name_index_files ~surname_index_files ~place_index_files;
         Integrity.write_index_integrity ~kind ~base;
         base)
       else (
@@ -854,6 +932,8 @@ let initialize_lowercase_name_index ?(on_lock_error = Lock.print_try_again)
                  (Integrity.read_index_integrity base))
         then Integrity.write_index_integrity ~kind ~base;
         base))
+
+let initialize_lowercase_name_index = initialize_index
 
 let output ?(save_mem = false) ?(tasks = []) base =
   (* create database directory *)

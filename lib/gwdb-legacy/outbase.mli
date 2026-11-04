@@ -25,8 +25,14 @@ val output :
     - {i particles.txt} text file with autorised name's particles.
     *)
 
+val initialize_index :
+  ?on_lock_error:(unit -> unit) ->
+  kind:[< `First_name | `Surname | `Place ] ->
+  Dbdisk.dsk_base ->
+  Dbdisk.dsk_base
+
 val initialize_lowercase_name_index :
   ?on_lock_error:(unit -> unit) ->
-  kind:[< `First_name | `Surname ] ->
+  kind:[< `First_name | `Surname | `Place ] ->
   Dbdisk.dsk_base ->
   Dbdisk.dsk_base

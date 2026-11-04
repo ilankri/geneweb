@@ -474,6 +474,9 @@ module type Driver_S = sig
   (** Returns data structure that allows to make optimised search throughout
     index by place *)
 
+  val has_places_index : base -> bool
+  (** Returns whether the database has a places index file *)
+
   val persons_of_lower_first_name : base -> string_person_index
   (** Returns data structure that allows to make optimised search throughout
       index by first name *)
@@ -732,9 +735,17 @@ module type Driver_S = sig
 
   val set_fpoi_cache : base -> bool -> unit
 
+  val initialize_index :
+    ?on_lock_error:(unit -> unit) ->
+    kind:[< `First_name | `Surname | `Place ] ->
+    base ->
+    base
+
+  val initialize_place_index : ?on_lock_error:(unit -> unit) -> base -> base
+
   val initialize_lowercase_name_index :
     ?on_lock_error:(unit -> unit) ->
-    kind:[< `First_name | `Surname ] ->
+    kind:[< `First_name | `Surname | `Place ] ->
     base ->
     base
 end
@@ -1264,6 +1275,9 @@ struct
         let spi = Current.persons_of_place base in
         Current_string_person_index spi
 
+  let has_places_index =
+    Util.wrap_base Legacy.has_places_index Current.has_places_index
+
   let persons_of_lower_first_name = function
     | Legacy_base base ->
         let spi = Legacy.persons_of_lower_first_name base in
@@ -1602,12 +1616,15 @@ struct
   let set_fpoi_cache =
     Util.wrap_base Legacy.set_fpoi_cache Current.set_fpoi_cache
 
-  let initialize_lowercase_name_index ?on_lock_error ~kind =
+  let initialize_index ?on_lock_error ~kind =
     Util.wrap_base
       (fun base ->
-        Legacy_base
-          (Legacy.initialize_lowercase_name_index ?on_lock_error ~kind base))
+        Legacy_base (Legacy.initialize_index ?on_lock_error ~kind base))
       (fun base ->
-        Current_base
-          (Current.initialize_lowercase_name_index ?on_lock_error ~kind base))
+        Current_base (Current.initialize_index ?on_lock_error ~kind base))
+
+  let initialize_place_index ?on_lock_error base =
+    initialize_index ?on_lock_error ~kind:`Place base
+
+  let initialize_lowercase_name_index = initialize_index
 end

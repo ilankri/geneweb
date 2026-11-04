@@ -474,6 +474,9 @@ module type Driver_S = sig
   (** Returns data structure that allows to make optimised search throughout
     index by place *)
 
+  val has_places_index : base -> bool
+  (** Returns whether the database has a places index file *)
+
   val persons_of_lower_first_name : base -> string_person_index
   (** Returns data structure that allows to make optimised search throughout
       index by first name *)
@@ -732,9 +735,17 @@ module type Driver_S = sig
 
   val set_fpoi_cache : base -> bool -> unit
 
+  val initialize_index :
+    ?on_lock_error:(unit -> unit) ->
+    kind:[< `First_name | `Surname | `Place ] ->
+    base ->
+    base
+
+  val initialize_place_index : ?on_lock_error:(unit -> unit) -> base -> base
+
   val initialize_lowercase_name_index :
     ?on_lock_error:(unit -> unit) ->
-    kind:[< `First_name | `Surname ] ->
+    kind:[< `First_name | `Surname | `Place ] ->
     base ->
     base
 end

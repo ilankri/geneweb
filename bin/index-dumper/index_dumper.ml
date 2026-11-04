@@ -53,7 +53,8 @@ let dump_index key database index =
 
 type fnames = { inx : string; dat : string }
 
-let filenames ~path ~(kind : [ `Surname | `Firstname | `Surname_marital ])
+let filenames ~path
+    ~(kind : [ `Surname | `Firstname | `Surname_marital | `Place ])
     ~(index_type : [ `Default | `Lower ]) =
   let path =
     if Filename.check_suffix path ".gwb" then path else path ^ ".gwb"
@@ -67,6 +68,7 @@ let filenames ~path ~(kind : [ `Surname | `Firstname | `Surname_marital ])
     | `Default, `Surname_marital -> ("snames_marital.inx", "snames_marital.dat")
     | `Lower, `Firstname -> ("fnames_lower.inx", "fnames_lower.dat")
     | `Default, `Firstname -> ("fnames.inx", "fnames.dat")
+    | _, `Place -> ("places.inx", "places.dat")
   in
   { inx = Filename.concat path inx_file; dat = Filename.concat path dat_file }
 
@@ -115,6 +117,9 @@ let main () =
               database_path database;
             print_endline "==========SNAMES MARITAL LOWER==========";
             dump_indexes ~key:!key ~kind:`Surname_marital ~index_type:`Lower
+              database_path database;
+            print_endline "==========PLACES==========";
+            dump_indexes ~key:!key ~kind:`Place ~index_type:`Default
               database_path database;
             Gwdb.clear_persons_array database;
             Gwdb.clear_strings_array database))

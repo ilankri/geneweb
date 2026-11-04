@@ -66,6 +66,9 @@ let persons_of_first_name base = base.Dbdisk.func.Dbdisk.persons_of_first_name
 let persons_of_surname base = base.Dbdisk.func.Dbdisk.persons_of_surname
 let persons_of_place base = base.Dbdisk.func.Dbdisk.persons_of_place
 
+let has_places_index base =
+  Sys.file_exists (Filename.concat base.Dbdisk.data.bdir Dutil.places_inx)
+
 let persons_of_lower_first_name base =
   base.Dbdisk.func.Dbdisk.persons_of_lower_first_name
 
@@ -609,5 +612,10 @@ let base_visible_get base fct i =
       status
   | Some b -> b
 
-let initialize_lowercase_name_index ?on_lock_error ~kind base =
-  Outbase.initialize_lowercase_name_index ?on_lock_error ~kind base
+let initialize_index ?on_lock_error ~kind base =
+  Outbase.initialize_index ?on_lock_error ~kind base
+
+let initialize_place_index ?on_lock_error base =
+  initialize_index ?on_lock_error ~kind:`Place base
+
+let initialize_lowercase_name_index = initialize_index
