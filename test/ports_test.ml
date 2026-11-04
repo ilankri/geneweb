@@ -188,6 +188,13 @@ let title_name_b =
 
 let fam_comment = Gwdb.sou base (Gwdb.get_comment fam)
 let wiki = Gwdb.base_notes_read base ""
+let a_iper = Gwdb.get_iper a
+let b_iper = Gwdb.get_iper b
+let a_birth_place_istr = Gwdb.get_birth_place a
+let fam_marr_place_istr = Gwdb.get_marriage_place fam
+let places_spi = Gwdb.persons_of_place base
+let persons_of_a_birth_place = Gwdb.spi_find places_spi a_birth_place_istr
+let persons_of_fam_marr_place = Gwdb.spi_find places_spi fam_marr_place_istr
 let () = Gwdb.close_base base
 
 (* -- *)
@@ -256,6 +263,17 @@ let test_abc_title () =
   (Alcotest.check Alcotest.bool) "title name" true title_name_b;
   (Alcotest.check Alcotest.int) "title nth" 1 title.t_nth
 
+let test_abc_persons_of_place () =
+  (Alcotest.check Alcotest.bool)
+    "a in persons_of_place for birth place" true
+    (List.mem a_iper persons_of_a_birth_place);
+  (Alcotest.check Alcotest.bool)
+    "a in persons_of_place for marriage place" true
+    (List.mem a_iper persons_of_fam_marr_place);
+  (Alcotest.check Alcotest.bool)
+    "b in persons_of_place for marriage place" true
+    (List.mem b_iper persons_of_fam_marr_place)
+
 let test_abc_br () =
   (* TODO <br> bug at import https://github.com/geneweb/geneweb/issues/1002 *)
   (Alcotest.check Alcotest.string)
@@ -304,6 +322,8 @@ let v =
         Alcotest.test_case "Abc marriage event" `Quick test_abc_marriage;
         Alcotest.test_case "Abc Degree event" `Quick test_abc_degree_event;
         Alcotest.test_case "Abc title" `Quick test_abc_title;
+        Alcotest.test_case "Abc persons of place" `Quick
+          test_abc_persons_of_place;
       ] );
     ( "notes-br",
       [

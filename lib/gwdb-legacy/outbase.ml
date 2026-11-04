@@ -4,6 +4,7 @@ let load_ascends_array base = base.Dbdisk.data.ascends.load_array ()
 let load_unions_array base = base.Dbdisk.data.unions.load_array ()
 let load_couples_array base = base.Dbdisk.data.couples.load_array ()
 let load_descends_array base = base.Dbdisk.data.descends.load_array ()
+let load_families_array base = base.Dbdisk.data.families.load_array ()
 let load_strings_array base = base.Dbdisk.data.strings.load_array ()
 let close_base base = base.Dbdisk.func.cleanup ()
 let verbose = Mutil.verbose
@@ -321,6 +322,39 @@ let output_first_name_index base tmp_fnames_inx tmp_fnames_dat =
     (fun _ p1 p2 -> Int.compare p1.key_index p2.key_index)
     (fun p -> p.first_name :: p.first_names_aliases)
     base tmp_fnames_inx tmp_fnames_dat
+
+let output_place_index base tmp_places_inx tmp_places_dat =
+  let places_of_person p =
+    let places =
+      [ p.Dbdisk.birth_place; p.baptism_place; p.death_place; p.burial_place ]
+    in
+    let places =
+      List.fold_left
+        (fun acc (e : _ Dbdisk.gen_pers_event) -> e.epers_place :: acc)
+        places p.pevents
+    in
+    let places =
+      try
+        let u = base.Dbdisk.data.unions.get p.key_index in
+        Array.fold_left
+          (fun acc ifam ->
+            let fam = base.data.families.get ifam in
+            let acc = fam.marriage_place :: acc in
+            List.fold_left
+              (fun acc (e : _ Dbdisk.gen_fam_event) -> e.efam_place :: acc)
+              acc fam.fevents)
+          places u.family
+      with _ -> places
+    in
+    List.filter (fun istr -> istr <> 0) places
+  in
+  output_name_index_aux
+    (fun is1 is2 ->
+      if is1 = is2 then 0
+      else
+        String.compare (base.data.strings.get is1) (base.data.strings.get is2))
+    (fun _ p1 p2 -> Int.compare p1.key_index p2.key_index)
+    places_of_person base tmp_places_inx tmp_places_dat
 
 let compare_persons cmp_istr proj1 proj2 istr p1 p2 =
   let c1 = cmp_istr (proj1 p1) istr in
@@ -833,6 +867,8 @@ let output ?(save_mem = false) ?(tasks = []) base =
   let tmp_snames_dat = Dutil.snames_dat_path ~temp:true base in
   let tmp_fnames_inx = Dutil.fnames_inx_path ~temp:true base in
   let tmp_fnames_dat = Dutil.fnames_dat_path ~temp:true base in
+  let tmp_places_inx = Dutil.places_inx_path ~temp:true base in
+  let tmp_places_dat = Dutil.places_dat_path ~temp:true base in
   let tmp_strings_inx = Filename.concat bname "1strings.inx" in
   let tmp_notes = Filename.concat bname "1notes" in
   let tmp_notes_d = Filename.concat bname "1notes_d" in
@@ -840,6 +876,7 @@ let output ?(save_mem = false) ?(tasks = []) base =
   load_unions_array base;
   load_couples_array base;
   load_descends_array base;
+  load_families_array base;
   load_strings_array base;
   let strings_data = StringData.of_base base in
   let pending_lowercase_first_name_index_generation =
@@ -848,6 +885,8 @@ let output ?(save_mem = false) ?(tasks = []) base =
   let pending_lowercase_surname_index_generation =
     generate_lowercase_surname_index ~strings_data base
   in
+  trace "create place index";
+  output_place_index base tmp_places_inx tmp_places_dat;
   let pending_base_generation = generate_base ~keep_patch:false base in
   (try
      (let oc_inx = Secure.open_out_bin tmp_names_inx in
@@ -923,6 +962,8 @@ let output ?(save_mem = false) ?(tasks = []) base =
      Files.rm tmp_names_inx;
      Files.rm tmp_names_acc;
      Files.rm tmp_strings_inx;
+     Files.rm tmp_places_inx;
+     Files.rm tmp_places_dat;
      Files.remove_dir tmp_notes_d;
      raise e);
   pending_base_generation.commit ();
@@ -938,6 +979,10 @@ let output ?(save_mem = false) ?(tasks = []) base =
   Sys.rename tmp_fnames_dat (Dutil.fnames_dat_path base);
   Files.rm (Dutil.fnames_inx_path base);
   Sys.rename tmp_fnames_inx (Dutil.fnames_inx_path base);
+  Files.rm (Dutil.places_dat_path base);
+  Sys.rename tmp_places_dat (Dutil.places_dat_path base);
+  Files.rm (Dutil.places_inx_path base);
+  Sys.rename tmp_places_inx (Dutil.places_inx_path base);
 
   pending_lowercase_surname_index_generation.commit ();
   pending_lowercase_first_name_index_generation.commit ();
